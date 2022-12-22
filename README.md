@@ -1,28 +1,46 @@
-# setup-k8s-cluster
-## Launch an EC2 instance
+# setup kubernetes cluster using kops
+
+## Pre-requisites
+-Aws account with aws CLI configured
+-kubectl installed
+-jq manipulation tool
+-Active dedicated "kops" subdomain
+
 ## install AWSCLI
 curl https://s3.amazonaws.com/aws-cli/awscli-bundle.zip -o awscli-bundle.zip
 apt install unzip python
  unzip awscli-bundle.zip
  #sudo apt-get install unzip - if you dont have unzip in your system
  ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+
 ## Install kubectl
 curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
 chmod +x ./kubectl
 sudo mv ./kubectl /usr/local/bin/kubectl
-## Create an IAM role with Route53, EC2, IAM and S3 full access
-## Attach IAM role to ubuntu server
-## Install kops on ubuntu instance:
+
+## create "kops" IAM user with the required permissions.
+-AmazonEC2FullAccess
+-AmazonRoute53FullAccess
+-AmazonS3FullAccess
+-IAMFullAccess
+
+## Configure Route53 DNS setup
+-Create a hosted zone in aws for your subdomain
+-Add NS records in the DNS setting of your main domain
+-Verify NS records using the dig tool
+
+## create an S3 bucket
+ aws s3 mb s3:// bucket-name
+
+## Install kops on ubuntu/amazon ec2 instance:
 curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
 chmod +x kops-linux-amd64
 sudo mv kops-linux-amd64 /usr/local/bin/kops
-## Create a Route53 private hosted zone (you can create Public hosted zone if you have a domain)
-## create an S3 bucket
- aws s3 mb s3://k8s-bucket2
+
 ## Expose environment variable- configure the below commands in your editor: 
 use nano ~/. bashrc
-export KOPS_CLUSTER_NAME=cluster name
-export KOPS_STATE_STORE=s3://bucket name
+export KOPS_CLUSTER_NAME= cluster-name (subdomain name)
+export KOPS_STATE_STORE=s3://bucket-name
 
 ## Reflect variables added to. bashrc using:
 Source ~/. Bashrc
@@ -40,12 +58,24 @@ Source ~/. Bashrc
 --master-count 1
 
 ## Create kubernetes cluster
-  kops update cluster --yes
-## Validate your cluster
- kops validate cluster
-## Login to master Node
-Ssh admin@domain name
+  kops update cluster --name (cluster-name) --yes
+
+  ## verify your cluster
+  kops get cluster
+
+## Validate your cluster health
+ kops validate cluster --wait 10min
+
+## Login to master Node from (ec2 instance)
+Ssh admin@api(cluster-name)
+
 ## To list nodes
   kubectl get nodes 
-## Delete cluster
-kops delete cluster --yes
+
+## modify kubernetes cluster
+kops get instance groups - list nodes
+kops edit instancegroups (node-name) -edit configurations
+
+## Delete cluster and all resources
+kops delete cluster --name (cluster-name) --yes
+
